@@ -49,6 +49,7 @@ button{font:inherit;color:inherit}
 .tt{height:40px;border:0;background:none;border-radius:999px;padding:0 12px 0 10px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:4px;cursor:pointer;max-width:240px}
 .tt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tt svg{width:14px;height:14px;color:var(--ink2);flex:none}
+.zpm{width:32px!important;min-width:32px!important}.zpm svg{width:17px;height:17px}.zb{min-width:54px!important;padding:0 4px!important}
 .zb{height:40px;border:0;background:none;border-radius:999px;padding:0 10px;font-weight:600;font-variant-numeric:tabular-nums;min-width:62px;cursor:pointer}
 .sep{width:.5px;height:22px;background:var(--hair);margin:0 4px}
 .panel{position:fixed;top:calc(var(--st) + 66px);bottom:calc(var(--sb) + 12px);width:262px;border-radius:26px;display:flex;flex-direction:column;overflow:hidden;z-index:15;transition:transform .38s cubic-bezier(.2,.9,.25,1.05),opacity .25s}
@@ -242,7 +243,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;heigh
     <button class="b" id="bUndo" title="Annulla (⌘Z)"></button>
     <button class="b" id="bRedo" title="Ripeti (⇧⌘Z)"></button>
     <span class="sep"></span>
-    <button class="zb" id="bZoom">100%</button>
+    <button class="b zpm" id="bZm" title="Riduci (⌘−)"></button><button class="zb" id="bZoom" title="Zoom: tocca per il menu, scorri con due dita per ingrandire">100%</button><button class="b zpm" id="bZp" title="Ingrandisci (⌘+)"></button>
     <button class="b" id="bExport" title="Esporta (⇧⌘E)"></button>
     <button class="b" id="bMore" title="Menu rapido"></button>
     <button class="b" id="bInsp" title="Proprietà"></button>
@@ -1022,7 +1023,9 @@ function tap(sp,shift,pt,a){
 let gz=null;
 function zoomAt(f,sp){const z=clampZ(view.z*f),k=z/view.z;view.x=sp.x-(sp.x-view.x)*k;view.y=sp.y-(sp.y-view.y)*k;view.z=z;inv();}
 stage.addEventListener('wheel',e=>{e.preventDefault();const m=e.deltaMode===1?16:1;dlog(`rotella ${e.ctrlKey?'ctrl ':''}${e.metaKey?'cmd ':''}dx ${Math.round(e.deltaX)} dy ${Math.round(e.deltaY)}`);
-  if(e.ctrlKey||e.metaKey||e.altKey){if(!gz)zoomAt(Math.exp(-e.deltaY*m*(e.ctrlKey&&!e.metaKey?.01:.005)),loc(e));}else{view.x-=e.deltaX*m;view.y-=e.deltaY*m;inv();}},{passive:false});
+  const mod=e.ctrlKey||e.metaKey||e.altKey;
+  if(settings.scrollZoom&&!e.ctrlKey){if(mod){view.x-=e.deltaX*m;view.y-=e.deltaY*m;inv();}else{if(Math.abs(e.deltaX)>Math.abs(e.deltaY)*1.5){view.x-=e.deltaX*m;inv();}else zoomAt(Math.exp(-e.deltaY*m*.008),loc(e));}return;}
+  if(mod){if(!gz)zoomAt(Math.exp(-e.deltaY*m*(e.ctrlKey&&!e.metaKey?.01:.005)),loc(e));}else{view.x-=e.deltaX*m;view.y-=e.deltaY*m;inv();}},{passive:false});
 let hov=null;window.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')hov={x:e.clientX,y:e.clientY};},true);
 const fingersDown=()=>[...P.values()].some(p=>p.type!=='mouse');
 function gzAt(e){const x=e.clientX,y=e.clientY;if(isFinite(x)&&isFinite(y)&&(x||y))return{x,y};if(hov)return hov;const A=area();return{x:A.x+A.w/2,y:A.y+A.h/2};}
@@ -1182,9 +1185,13 @@ $('#bUndo').onclick=undo;$('#bRedo').onclick=redo;
 $('#bMore').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();openQM(r.left+r.width/2,r.bottom+8,true);};
 function setMulti(v){multiL=v;$('#bMulti').classList.toggle('on',v);$('#bMultiC').classList.toggle('on',v);if(v&&tool!=='move')setTool('move');hud('multi',v?'Selezione multipla attiva':'Selezione multipla disattivata');}
 $('#bMulti').onclick=()=>setMulti(!multiL);$('#bMultiC').onclick=()=>setMulti(!multiL);
+$('#bZm').innerHTML=ic('zout');$('#bZp').innerHTML=ic('zin');
+$('#bZm').onclick=()=>zoomC(.8);$('#bZp').onclick=()=>zoomC(1.25);
+['#bZm','#bZoom','#bZp','#tools'].forEach(q=>$(q).addEventListener('wheel',e=>{e.preventDefault();e.stopPropagation();const m=e.deltaMode===1?16:1,d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:-e.deltaX;zoomC(Math.exp(-d*m*.008));},{passive:false}));
 $('#bZoom').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();openPop(r.left+r.width/2,r.bottom+8,[
   ['zin','Ingrandisci','⌘+',()=>zoomC(1.25)],['zout','Riduci','⌘−',()=>zoomC(.8)],['','Zoom al 100%','⌘0',()=>zoomC(1/view.z)],0,
   ['fit','Adatta tutto','⇧1',()=>fitTo(doc.root)],['fit','Adatta selezione','⇧2',()=>fitTo(sel),!sel.length],0,
+  ['zin',(settings.scrollZoom?'✓ ':'')+'Scorri per zoomare','',()=>{settings.scrollZoom=!settings.scrollZoom;saveSettings();hud('zin',settings.scrollZoom?'Due dita sul trackpad: zoom · con ⌘ o ⌥: sposta':'Due dita sul trackpad: sposta · con ⌘ o ⌥: zoom');}],0,
   ['magnet',(settings.snap?'✓ ':'')+'Aggancio magnetico','',()=>{settings.snap=!settings.snap;saveSettings();hud('magnet',settings.snap?'Aggancio attivo':'Aggancio spento');}],
   ['grid',(settings.grids?'✓ ':'')+'Mostra griglie di layout','',()=>{settings.grids=!settings.grids;saveSettings();inv();}],
   ['guide',(settings.guides?'✓ ':'')+'Mostra guide','',()=>{settings.guides=!settings.guides;saveSettings();inv();}],0,
@@ -1227,7 +1234,7 @@ function showHelp(){$('#sheetCard').innerHTML=`<h2>Gesti e scorciatoie</h2>
 <h3>Dita e Pencil</h3><dl>
 <dt>Pencil</dt><dd>Disegna, seleziona, sposta, ridimensiona</dd>
 <dt>Un dito</dt><dd>Sposta la vista; tocco per selezionare (con modalità Pencil attiva)</dd>
-<dt>Pizzico</dt><dd>Zoom, anche con il Magic Trackpad</dd>
+<dt>Pizzico</dt><dd>Zoom con le dita sullo schermo</dd><dt>Magic Trackpad</dt><dd>Due dita per spostare, con ⌘ o ⌥ per lo zoom. Oppure scorri sopra la percentuale o sulla barra degli strumenti, usa − e +, o attiva «Scorri per zoomare» nel menu dello zoom. iPadOS non passa il pizzico del trackpad alle pagine web</dd>
 <dt>Tocco a 2 dita</dt><dd>Annulla</dd><dt>Tocco a 3 dita</dt><dd>Ripeti</dd>
 <dt>Tieni premuto</dt><dd>Menu rapido sull'oggetto</dd>
 <dt>Pulsante assi</dt><dd>In basso a sinistra: assi, rotazione e linee a 45°. 1 tocco: prossimo gesto · 2: sempre · 3: spento</dd><dt>Proporzioni bloccate</dt><dd>Catena accanto alla selezione, tieni premuta la freccia, o premi V sulla tastiera</dd><dt>Testo</dt><dd>Doppio tocco su una maniglia: la casella abbraccia il testo. Trascinando una maniglia in alto o in basso la casella diventa a dimensione fissa, con allineamento in alto, al centro o in basso</dd><dt>Crea frame</dt><dd>Menu rapido: racchiude la selezione in un frame (⌘⌥G)</dd><dt>Rifletti</dt><dd>Menu rapido, o ⇧H / ⇧V</dd><dt>SVG</dt><dd>Incolla codice SVG (anche da Figma: Copia come SVG) o trascina un file .svg: diventa livelli modificabili</dd><dt>Doppio tocco Pencil</dt><dd>Menu contestuale dell'oggetto</dd>
