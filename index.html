@@ -1026,7 +1026,8 @@ stage.addEventListener('wheel',e=>{e.preventDefault();const m=e.deltaMode===1?16
 let hov=null;window.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')hov={x:e.clientX,y:e.clientY};},true);
 const fingersDown=()=>[...P.values()].some(p=>p.type!=='mouse');
 function gzAt(e){const x=e.clientX,y=e.clientY;if(isFinite(x)&&isFinite(y)&&(x||y))return{x,y};if(hov)return hov;const A=area();return{x:A.x+A.w/2,y:A.y+A.h/2};}
-function dlog(t){if(diagOn){diagLast=t;setTimeout(diag,0);}}
+const EVC={gesture:0,wheel:0,ctrl:0,touchev:0};function dlog(t){if(diagOn){diagLast=t;setTimeout(diag,0);}}
+['gesturestart','gesturechange','wheel','touchstart'].forEach(t=>window.addEventListener(t,e=>{if(t.startsWith('gesture'))EVC.gesture++;else if(t==='wheel'){EVC.wheel++;if(e.ctrlKey)EVC.ctrl++;}else EVC.touchev++;if(diagOn){if(t==='touchstart')diagLast='touchstart · '+e.touches.length+' punti';setTimeout(diag,0);}},{capture:true,passive:true}));
 window.addEventListener('gesturestart',e=>{e.preventDefault();dlog('pinch inizio (gesture)');if(!fingersDown())gz={z:view.z,at:gzAt(e)};},{passive:false,capture:true});
 window.addEventListener('gesturechange',e=>{e.preventDefault();const sc=+e.scale||1;dlog('pinch × '+sc.toFixed(2)+' (gesture)');if(fingersDown())return;if(!gz)gz={z:view.z/sc,at:gzAt(e)};zoomAt(clampZ(gz.z*sc)/view.z,gz.at);},{passive:false,capture:true});
 window.addEventListener('gestureend',e=>{e.preventDefault();gz=null;},{passive:false,capture:true});
@@ -1686,7 +1687,7 @@ document.addEventListener('paste',e=>{if(typing(e))return;const fs=[...(e.clipbo
 /* ---------- touch diagnostics ---------- */
 let diagOn=false;const DP=new Map();let diagLast='';
 function diag(){if(!diagOn)return;const c={pen:0,touch:0,mouse:0};DP.forEach(t=>c[t]=(c[t]||0)+1);
-  $('#diag').textContent=`Pencil ${c.pen} · dita ${c.touch} · modificatori ${modN()}\n${diagLast}`;}
+  $('#diag').textContent=`Pencil ${c.pen} · dita ${c.touch} · cursore ${c.mouse} · modificatori ${modN()}\nricevuti: pizzico ${EVC.gesture} · rotella ${EVC.wheel} (ctrl ${EVC.ctrl}) · touch ${EVC.touchev}\n${diagLast}`;}
 ['pointerdown','pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(t==='pointerdown')DP.set(e.pointerId,e.pointerType);else DP.delete(e.pointerId);
   if(diagOn){diagLast=`ultimo: ${t.replace('pointer','')} (${e.pointerType})${act?' · azione '+act.type:''}`;setTimeout(diag,0);}},true));
 function toggleDiag(){diagOn=!diagOn;$('#diag').style.display=diagOn?'block':'none';diag();}
