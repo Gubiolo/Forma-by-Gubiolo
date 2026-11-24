@@ -1021,11 +1021,15 @@ function tap(sp,shift,pt,a){
 /* trackpad & wheel */
 let gz=null;
 function zoomAt(f,sp){const z=clampZ(view.z*f),k=z/view.z;view.x=sp.x-(sp.x-view.x)*k;view.y=sp.y-(sp.y-view.y)*k;view.z=z;inv();}
-stage.addEventListener('wheel',e=>{e.preventDefault();const m=e.deltaMode===1?16:1;
-  if(e.ctrlKey||e.metaKey){if(!gz)zoomAt(Math.exp(-e.deltaY*m*.01),loc(e));}else{view.x-=e.deltaX*m;view.y-=e.deltaY*m;inv();}},{passive:false});
-document.addEventListener('gesturestart',e=>{e.preventDefault();if(!P.size)gz={z:view.z};},{passive:false});
-document.addEventListener('gesturechange',e=>{e.preventDefault();if(!gz||P.size)return;zoomAt(clampZ(gz.z*e.scale)/view.z,{x:e.clientX,y:e.clientY});},{passive:false});
-document.addEventListener('gestureend',e=>{e.preventDefault();gz=null;},{passive:false});
+stage.addEventListener('wheel',e=>{e.preventDefault();const m=e.deltaMode===1?16:1;dlog(`rotella ${e.ctrlKey?'ctrl ':''}${e.metaKey?'cmd ':''}dx ${Math.round(e.deltaX)} dy ${Math.round(e.deltaY)}`);
+  if(e.ctrlKey||e.metaKey||e.altKey){if(!gz)zoomAt(Math.exp(-e.deltaY*m*(e.ctrlKey&&!e.metaKey?.01:.005)),loc(e));}else{view.x-=e.deltaX*m;view.y-=e.deltaY*m;inv();}},{passive:false});
+let hov=null;window.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')hov={x:e.clientX,y:e.clientY};},true);
+const fingersDown=()=>[...P.values()].some(p=>p.type!=='mouse');
+function gzAt(e){const x=e.clientX,y=e.clientY;if(isFinite(x)&&isFinite(y)&&(x||y))return{x,y};if(hov)return hov;const A=area();return{x:A.x+A.w/2,y:A.y+A.h/2};}
+function dlog(t){if(diagOn){diagLast=t;setTimeout(diag,0);}}
+window.addEventListener('gesturestart',e=>{e.preventDefault();dlog('pinch inizio (gesture)');if(!fingersDown())gz={z:view.z,at:gzAt(e)};},{passive:false,capture:true});
+window.addEventListener('gesturechange',e=>{e.preventDefault();const sc=+e.scale||1;dlog('pinch × '+sc.toFixed(2)+' (gesture)');if(fingersDown())return;if(!gz)gz={z:view.z/sc,at:gzAt(e)};zoomAt(clampZ(gz.z*sc)/view.z,gz.at);},{passive:false,capture:true});
+window.addEventListener('gestureend',e=>{e.preventDefault();gz=null;},{passive:false,capture:true});
 document.addEventListener('touchmove',e=>{if(e.target.closest&&!e.target.closest('.pb,.fl,#pop')&&!e.target.isContentEditable)e.preventDefault();},{passive:false});
 
 /* ---------- commands ---------- */
